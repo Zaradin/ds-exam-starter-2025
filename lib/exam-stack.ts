@@ -85,7 +85,8 @@ export class ExamStack extends cdk.Stack {
           'application/json': `
             {
               "role": "$input.params('role')",
-              "movieId": "$input.params('movieId')"
+              "movieId": "$input.params('movieId')",
+              "verbose": "$input.params('verbose')"
             }
           `
         }

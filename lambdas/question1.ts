@@ -1,6 +1,6 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = createDDbDocClient();
 
@@ -10,6 +10,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
     
     const role = event.pathParameters?.role;
     const movieId = event.pathParameters?.movieId;
+    const verbose = event.queryStringParameters?.verbose === 'true';
 
     if (!role || !movieId) {
       return {
@@ -35,37 +36,71 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
       };
     }
 
+    if (verbose) {
+      const commandOutput = await client.send(
+        new QueryCommand({
+          TableName: process.env.TABLE_NAME,
+          KeyConditionExpression: "movieId = :movieId",
+          ExpressionAttributeValues: {
+            ":movieId": movieIdNum,
+          },
+        })
+      );
 
-    
-    const commandOutput = await client.send(
-      new GetCommand({
-        TableName: process.env.TABLE_NAME,
-        Key: {
-          movieId: movieIdNum,
-          role: role,
-        },
-      })
-    );
+      if (!commandOutput.Items || commandOutput.Items.length === 0) {
+        return {
+          statusCode: 404,
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ 
+            error: `No crew members found for movie ${movieId}` 
+          }),
+        };
+      }
 
-    if (!commandOutput.Item) {
       return {
-        statusCode: 404,
+        statusCode: 200,
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ 
-          error: `No crew member found for role '${role}' in movie ${movieId}` 
+        body: JSON.stringify({
+          movieId: movieIdNum,
+          crewCount: commandOutput.Items.length,
+          crew: commandOutput.Items,
         }),
       };
-    }
+    } else {
+      const commandOutput = await client.send(
+        new GetCommand({
+          TableName: process.env.TABLE_NAME,
+          Key: {
+            movieId: movieIdNum,
+            role: role,
+          },
+        })
+      );
 
-    return {
-      statusCode: 200,
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(commandOutput.Item),
-    };
+      if (!commandOutput.Item) {
+        return {
+          statusCode: 404,
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ 
+            error: `No crew member found for role '${role}' in movie ${movieId}` 
+          }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(commandOutput.Item),
+      };
+    }
   } catch (error: any) {
     console.log(JSON.stringify(error));
     return {
