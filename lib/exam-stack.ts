@@ -139,6 +139,9 @@ export class ExamStack extends cdk.Stack {
       },
     });
 
+    //topic1.addSubscription(new subs.SqsSubscription(queueA));
+    //topic1.addSubscription(new subs.SqsSubscription(queueB));
+
     topic1.addSubscription(new subs.SqsSubscription(queueA, {
       filterPolicy: {
         "address.country": sns.SubscriptionFilter.stringFilter({
@@ -147,14 +150,25 @@ export class ExamStack extends cdk.Stack {
       },
     }));
 
-    //topic1.addSubscription(new subs.SqsSubscription(queueA));
-    topic1.addSubscription(new subs.SqsSubscription(queueB));
+    topic1.addSubscription(new subs.SqsSubscription(queueB, {
+      filterPolicy: {
+        "address.country": sns.SubscriptionFilter.stringFilter({
+          allowlist: ["Ireland", "China"],
+        }),
+      }
+    }));
 
     lambdaXFn.addEventSource(new events.SqsEventSource(queueA, {
       batchSize: 5,
     }));
 
+    lambdaYFn.addEventSource(new events.SqsEventSource(queueB, {
+      batchSize: 5,
+    }));
+
     queueA.grantConsumeMessages(lambdaXFn);
+    queueB.grantSendMessages(lambdaYFn);
+    queueB.grantConsumeMessages(lambdaYFn);
 
     new cdk.CfnOutput(this, "TopicArn", {
       value: topic1.topicArn,
