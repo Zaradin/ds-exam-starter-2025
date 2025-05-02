@@ -72,6 +72,28 @@ export class ExamStack extends cdk.Stack {
 
     const anEndpoint = api.root.addResource("patha");
 
+    const crewResource = api.root.addResource("crew");
+    const roleResource = crewResource.addResource("{role}");
+    const moviesResource = roleResource.addResource("movies");
+    const movieIdResource = moviesResource.addResource("{movieId}");
+
+
+    movieIdResource.addMethod(
+      "GET",
+      new apig.LambdaIntegration(question1Fn, {
+        requestTemplates: {
+          'application/json': `
+            {
+              "role": "$input.params('role')",
+              "movieId": "$input.params('movieId')"
+            }
+          `
+        }
+      })
+    );
+    
+    table.grantReadData(question1Fn);
+
 
     // ==================================
     // Question 2 - Event-Driven architecture

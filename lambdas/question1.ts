@@ -1,20 +1,70 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
-
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = createDDbDocClient();
 
 export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
   try {
     console.log("Event: ", JSON.stringify(event));
+    
+    const role = event.pathParameters?.role;
+    const movieId = event.pathParameters?.movieId;
+
+    if (!role || !movieId) {
+      return {
+        statusCode: 400,
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ 
+          error: "Missing required parameters: role and movieId" 
+        }),
+      };
+    }
+    const movieIdNum = parseInt(movieId);
+    if (isNaN(movieIdNum)) {
+      return {
+        statusCode: 400,
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ 
+          error: "movieId must be a number" 
+        }),
+      };
+    }
+
+
+    
+    const commandOutput = await client.send(
+      new GetCommand({
+        TableName: process.env.TABLE_NAME,
+        Key: {
+          movieId: movieIdNum,
+          role: role,
+        },
+      })
+    );
+
+    if (!commandOutput.Item) {
+      return {
+        statusCode: 404,
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ 
+          error: `No crew member found for role '${role}' in movie ${movieId}` 
+        }),
+      };
+    }
 
     return {
       statusCode: 200,
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(commandOutput.Item),
     };
   } catch (error: any) {
     console.log(JSON.stringify(error));
@@ -23,7 +73,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ error }),
+      body: JSON.stringify({ error: error.message }),
     };
   }
 };
