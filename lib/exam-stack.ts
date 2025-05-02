@@ -138,9 +138,16 @@ export class ExamStack extends cdk.Stack {
         REGION: "eu-west-1",
       },
     });
-    
-    
-    topic1.addSubscription(new subs.SqsSubscription(queueA));
+
+    topic1.addSubscription(new subs.SqsSubscription(queueA, {
+      filterPolicy: {
+        "address.country": sns.SubscriptionFilter.stringFilter({
+          allowlist: ["Ireland", "China"],
+        }),
+      },
+    }));
+
+    //topic1.addSubscription(new subs.SqsSubscription(queueA));
     topic1.addSubscription(new subs.SqsSubscription(queueB));
 
     lambdaXFn.addEventSource(new events.SqsEventSource(queueA, {
@@ -148,6 +155,11 @@ export class ExamStack extends cdk.Stack {
     }));
 
     queueA.grantConsumeMessages(lambdaXFn);
+
+    new cdk.CfnOutput(this, "TopicArn", {
+      value: topic1.topicArn,
+      description: "topic1 ARN",
+  });
   }
 }
   
